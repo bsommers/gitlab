@@ -1,0 +1,13 @@
+[gitlab_servers]
+${VM_NAME} ansible_host=${ANSIBLE_HOST} ansible_port=${ANSIBLE_PORT} ansible_user=${SSH_USER} ansible_ssh_private_key_file=${SSH_PRIVATE_KEY}
+
+[gitlab_servers:vars]
+gitlab_install_method=${GITLAB_INSTALL_METHOD}
+gitlab_edition=${GITLAB_EDITION}
+gitlab_external_url=${GITLAB_EXTERNAL_URL}
+gitlab_external_port=${GITLAB_EXTERNAL_PORT}
+gitlab_ssh_port=${GITLAB_SSH_PORT}
+gitlab_initial_root_password=${GITLAB_INITIAL_ROOT_PASSWORD}
+gitlab_puma_workers=${GITLAB_PUMA_WORKERS}
+gitlab_sidekiq_concurrency=${GITLAB_SIDEKIQ_CONCURRENCY}
+gitlab_prometheus_enable=${GITLAB_PROMETHEUS_ENABLE}

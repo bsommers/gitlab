@@ -1,0 +1,44 @@
+#cloud-config
+hostname: ${HOSTNAME}
+fqdn: ${HOSTNAME}
+manage_etc_hosts: true
+
+users:
+  - name: ${SSH_USER}
+    groups: [adm, sudo, docker]
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - ca-certificates
+  - openssh-server
+  - apt-transport-https
+  - gnupg
+  - lsb-release
+  - jq
+  - tzdata
+  - perl
+
+# Configure 4GB swapfile so GitLab Omnibus runs smoothly even under memory pressure
+swap:
+  filename: /swapfile
+  size: 4294967296
+  maxsize: 4294967296
+
+write_files:
+  - path: /etc/sysctl.d/99-gitlab.conf
+    permissions: "0644"
+    content: |
+      vm.swappiness = 10
+      kernel.shmall = 4194304
+
+runcmd:
+  - sysctl --system
+  - systemctl enable --now ssh
+  - touch /var/lib/cloud/instance/vbox-ready

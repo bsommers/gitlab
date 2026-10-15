@@ -1,0 +1,8 @@
+.state/
+*.iso
+*.vdi
+*.raw
+*.img
+__pycache__/
+*.pyc
+.DS_Store
