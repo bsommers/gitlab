@@ -1,5 +1,7 @@
 # Purpose
 
+[← Documentation Hub](README.md) | [← Project README](../README.md) | [User Guide →](user-guide/README.md)
+
 ## Problem Statement
 
 Standing up a disposable or local self-hosted GitLab server in VirtualBox traditionally requires downloading a multi-gigabyte Ubuntu installer ISO, clicking through VirtualBox GUI wizards, waiting 20+ minutes for OS installation, manually configuring NAT port-forwarding rules, setting up SSH keys, and troubleshooting GitLab Omnibus memory exhaustion (`gitlab-ctl reconfigure` OOM failures) inside constrained VMs. On Apple Silicon (`arm64`) Macs running VirtualBox 7.1, default x86 storage and NIC settings also fail unless `VirtIO` and `armv8virtual` parameters are explicitly configured.
@@ -8,16 +10,17 @@ Standing up a disposable or local self-hosted GitLab server in VirtualBox tradit
 
 ## Solution
 
-`gitlab` provides a self-contained Infrastructure-as-Code (IaC) and CLI automation suite that reduces VirtualBox VM creation, GitLab CE installation, and URL discovery to a single command (`./gitlab_vm.py up` or `./scripts/deploy-all.sh`). By combining official Ubuntu 24.04 cloud images, `NoCloud` cloud-init ISO generation, architecture-aware `VBoxManage` CLI automation, and VM-tuned Ansible/Bash provisioning, it delivers a ready-to-use GitLab instance at `http://localhost:8080` with zero GUI interaction.
+`gitlab` provides a self-contained Infrastructure-as-Code (IaC) and CLI automation suite that reduces VirtualBox VM creation, GitLab CE installation, and URL discovery to a deterministic workflow (`./gitlab_vm.py init → doctor → up` or `./scripts/deploy-all.sh`). By combining official Ubuntu 24.04 cloud images, `NoCloud` cloud-init ISO generation, architecture-aware `VBoxManage` CLI automation, and VM-tuned Ansible/Bash provisioning, it delivers a ready-to-use GitLab instance at `http://localhost:8080` with zero GUI interaction.
 
 ---
 
 ## Goals
 
 1. **Zero-GUI Reproducibility** — Every hypervisor setting, disk resize, cloud-init user-data script, NAT port-forwarding rule, and `/etc/gitlab/gitlab.rb` directive is defined in code (`iac/vm-spec.yaml`) and executed via CLI tools (`VBoxManage`, `ansible-playbook`, `ssh`).
-2. **Cross-Architecture Portability (`arm64` & `x86_64`)** — Automatically detect whether the host is Apple Silicon (`arm64` -> `Ubuntu24_LTS_arm64`) or Intel/AMD (`amd64` -> `Ubuntu24_LTS_64`) and select matching cloud images and VirtualBox `VirtIO` controllers.
-3. **Standalone Execution (No External Repo or Vagrant Lock-In)** — Operate directly against `VBoxManage` and standard system utilities (`qemu-img`, `hdiutil`/`mkisofs`, `ssh`) with an automatic fallback from Ansible to pure SSH/Bash (`scripts/install-gitlab.sh`) and a built-in Python YAML parser fallback.
-4. **Immediate Connection Visibility** — Provide a dedicated command (`./gitlab_vm.py url` / `./scripts/show-url.sh`) that inspects the live VM state, verifies HTTP readiness, and prints the Web URL, Git SSH clone URL, and initial `root` credentials in human-readable, raw, or JSON format.
+2. **Guided Multi-Scope Onboarding (`install.sh`, `init`, `doctor`, `guide`)** — Provide a frictionless first-time user experience with unprivileged `--local`, `--global`, and `--prefix` installation scopes, automated preflight verification (`doctor`), and progressive `Next steps:` breadcrumbs on `stderr`.
+3. **Cross-Architecture Portability (`arm64` & `x86_64`)** — Automatically detect whether the host is Apple Silicon (`arm64` -> `Ubuntu24_LTS_arm64`) or Intel/AMD (`amd64` -> `Ubuntu24_LTS_64`) and select matching cloud images and VirtualBox `VirtIO` controllers.
+4. **Standalone Execution (No External Repo or Vagrant Lock-In)** — Operate directly against `VBoxManage` and standard system utilities (`qemu-img`, `hdiutil`/`mkisofs`, `ssh`) with an automatic fallback from Ansible to pure SSH/Bash (`scripts/install-gitlab.sh`) and a built-in Python YAML parser fallback.
+5. **Immediate Connection Visibility** — Provide a dedicated command (`./gitlab_vm.py url` / `./scripts/show-url.sh`) that inspects the live VM state, verifies HTTP readiness, and prints the Web URL, Git SSH clone URL, and initial `root` credentials in human-readable, raw, or JSON format.
 
 ## Non-Goals
 
@@ -31,14 +34,15 @@ Standing up a disposable or local self-hosted GitLab server in VirtualBox tradit
 
 | Audience | How they interact | What they need from this |
 |----------|------------------|--------------------------|
-| **DevOps & Infrastructure Engineers** | Edit `iac/vm-spec.yaml` and `iac/ansible/playbook.yml`; run `./gitlab_vm.py up` | A fast, repeatable sandbox to test GitLab upgrades, Omnibus configurations, runners, and webhooks before applying changes to production |
-| **Software Developers** | Run `./scripts/deploy-all.sh` and `./scripts/show-url.sh` | A local GitLab server on `http://localhost:8080` to test Git workflows, API integrations, and CI pipelines offline |
-| **Platform / Automation Scripts** | Invoke `./gitlab_vm.py url --json` or `./gitlab_vm.py url --raw` | Deterministic exit codes and structured JSON output for automated test harnesses |
+| **DevOps & Infrastructure Engineers** | Edit `iac/vm-spec.yaml` and `iac/ansible/playbook.yml`; run `./gitlab_vm.py doctor && ./gitlab_vm.py up` | A fast, repeatable sandbox to test GitLab upgrades, Omnibus configurations, runners, and webhooks before applying changes to production |
+| **Software Developers** | Run `./scripts/install.sh --local` and `./scripts/deploy-all.sh` | A local GitLab server on `http://localhost:8080` to test Git workflows, API integrations, and CI pipelines offline |
+| **Platform / Automation Scripts** | Invoke `./gitlab_vm.py doctor --json`, `./gitlab_vm.py url --json`, or `./gitlab_vm.py url --raw` | Deterministic exit codes and structured JSON output for automated test harnesses |
 
 ---
 
 ## Success Criteria
 
+- [x] Multi-target installation (`./scripts/install.sh --local | --global | --prefix DIR`) and preflight verification (`./gitlab_vm.py doctor`) succeed without root privileges.
 - [x] Creating a Linux VM in VirtualBox succeeds solely via CLI tools (`./gitlab_vm.py create-vm` or `./scripts/create-vm.sh`) on both `arm64` and `x86_64`.
 - [x] Provisioning GitLab CE inside the VM succeeds idempotently via Ansible (`iac/ansible/playbook.yml`) or standalone Bash (`scripts/install-gitlab.sh`) using either `omnibus` or `docker`.
 - [x] Running `./gitlab_vm.py url` or `./scripts/show-url.sh` outputs the live GitLab Web URL, Git SSH endpoint, VM SSH command, and initial `root` credentials.

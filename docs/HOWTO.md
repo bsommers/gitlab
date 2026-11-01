@@ -1,8 +1,11 @@
 # How-To Guide
 
+[← Documentation Hub](README.md) | [← Project README](../README.md) | [User Guide →](user-guide/README.md)
+
 ## Contents
 
 - [Set up development environment](#set-up-development-environment)
+- [Install CLI (`--local`, `--global`, `--prefix`)](#install-cli---local---global---prefix)
 - [Run the application](#run-the-application)
 - [Run tests and dry-run verification](#run-tests-and-dry-run-verification)
 - [Configure VM hardware, ports, and GitLab settings](#configure-vm-hardware-ports-and-gitlab-settings)
@@ -27,12 +30,32 @@
 git clone git@github.com:bsommers/gitlab.git
 cd gitlab
 
-# Verify required host binaries are available
-which VBoxManage qemu-img python3 curl ssh-keygen
+# Initialize starter config (if missing) and run environment preflight checks
+./gitlab_vm.py init
+./gitlab_vm.py doctor
 
-# Verify configuration and preview generated VBoxManage commands
+# Preview generated VBoxManage and provisioning commands
 ./gitlab_vm.py --dry-run up
-# Expected output: Prints ssh-keygen, curl, qemu-img, VBoxManage, and ansible-playbook commands with [OK] status
+```
+
+---
+
+## Install CLI (`--local`, `--global`, `--prefix`)
+
+Use `scripts/install.sh` to install `gitlab-vm` in your preferred scope:
+
+```bash
+# User home (default: ~/.local/bin/gitlab-vm)
+./scripts/install.sh --local
+
+# Custom prefix directory
+./scripts/install.sh --prefix "$HOME/opt/gitlab-vm"
+
+# System-wide (/usr/local/bin/gitlab-vm, copies iac/ and scripts/)
+sudo ./scripts/install.sh --global
+
+# Uninstall from selected scope
+./scripts/install.sh --local --uninstall
 ```
 
 ---
@@ -89,12 +112,15 @@ Open `http://localhost:8080/users/sign_in` in your browser and sign in with user
 python3 -m py_compile gitlab_vm.py
 
 # 2. Syntax-check all Bash scripts
-bash -n scripts/create-vm.sh scripts/install-gitlab.sh scripts/show-url.sh scripts/deploy-all.sh
+bash -n scripts/install.sh scripts/create-vm.sh scripts/install-gitlab.sh scripts/show-url.sh scripts/deploy-all.sh
 
 # 3. Syntax-check the Ansible IaC playbook
 ansible-playbook --syntax-check -i "localhost," iac/ansible/playbook.yml
 
-# 4. Dry-run VM creation and provisioning (zero side effects)
+# 4. Run environment preflight check
+./gitlab_vm.py doctor
+
+# 5. Dry-run VM creation and provisioning (zero side effects)
 ./gitlab_vm.py --dry-run up
 ./scripts/create-vm.sh --dry-run
 ./scripts/install-gitlab.sh --dry-run
@@ -235,6 +261,9 @@ Expected result: Ansible connects over `127.0.0.1:2222`, applies the new task id
 **Cause**: `qemu-img` is required to convert the upstream Ubuntu QCOW2 `.img` cloud image into a raw image before `VBoxManage convertfromraw` creates the `.vdi` disk.
 **Fix**:
 ```bash
+# Run preflight doctor to see missing dependencies
+./gitlab_vm.py doctor
+
 # macOS
 brew install qemu
 
@@ -285,6 +314,9 @@ sudo cat /etc/gitlab/initial_root_password
 ## Manage VM lifecycle (SSH, stop, start, destroy)
 
 ```bash
+# View built-in workflow guide
+./gitlab_vm.py guide
+
 # Open an interactive shell inside the Ubuntu VM
 ./gitlab_vm.py ssh
 

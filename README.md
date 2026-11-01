@@ -9,14 +9,17 @@
 ## Quick Start
 
 ```bash
-# 1. Clone the repository
+# 1. Clone the repository and (optionally) install the CLI into ~/.local/bin
 git clone git@github.com:bsommers/gitlab.git
 cd gitlab
+./scripts/install.sh --local
 
-# 2. (Optional) Customize VM resources, ports, or GitLab credentials
-$EDITOR iac/vm-spec.yaml
+# 2. Initialize config and run environment preflight checks
+./gitlab_vm.py init
+./gitlab_vm.py doctor
 
-# 3. Create the Linux VM, provision GitLab CE, and print the connection URL
+# 3. Preview commands, then create the VM, provision GitLab CE, and show the URL
+./gitlab_vm.py --dry-run up
 ./gitlab_vm.py up
 ```
 
@@ -26,6 +29,7 @@ Visit `http://localhost:8080` — you will see the GitLab sign-in screen. Log in
 
 ## What It Does
 
+- **Multi-Scope CLI Onboarding (`install.sh`, `init`, `doctor`, `guide`)**: Installs `gitlab-vm` into user home (`--local`), system-wide (`--global`), or custom prefixes (`--prefix DIR`), initializes starter specs (`init`), validates host tools with actionable remedies (`doctor`), and emits progressive `Next steps:` breadcrumbs to `stderr`.
 - **Provisions VirtualBox Linux VMs via CLI (`VBoxManage`)**: Downloads the official Ubuntu 24.04 LTS (`noble`) cloud image matching the host CPU architecture (`arm64` or `amd64`), converts and resizes it to a 40 GB VDI disk via `qemu-img` and `VBoxManage`, and boots the VM headlessly with EFI firmware and VirtIO storage/networking.
 - **Bootstraps Guest OS via Cloud-Init (`NoCloud`)**: Generates a `cidata` ISO image containing rendered `user-data` and `meta-data` templates (`iac/cloud-init/`), injecting a dedicated Ed25519 SSH keypair, configuring a 4 GB swapfile, applying kernel `sysctl` parameters (`vm.swappiness=10`, `kernel.shmall=4194304`), and enabling `openssh-server`.
 - **Deploys GitLab CE via Omnibus or Docker Compose**: Provisions GitLab Community Edition inside the VM using either the idempotent Ansible playbook (`iac/ansible/playbook.yml`) or the standalone Bash installer (`scripts/install-gitlab.sh`), with single-VM memory tuning for Puma (`worker_processes=2`) and Sidekiq (`concurrency=10`).
@@ -62,10 +66,10 @@ Visit `http://localhost:8080` — you will see the GitLab sign-in screen. Log in
 ```mermaid
 flowchart LR
     Spec["iac/vm-spec.yaml"] --> CLI["gitlab_vm.py / scripts/*.sh"]
-    CLI -->|1. Download & Convert| Disk["Ubuntu 24.04 VDI Disk"]
-    CLI -->|2. Render & Package| Seed["Cloud-Init seed.iso"]
-    CLI -->|3. VBoxManage CLI| VBox["VirtualBox 7.x VM"]
-    Disk --> VBox
+    CLI -->|1. init & doctor| Preflight["Verified Host Toolchain"]
+    Preflight -->|2. Download & Convert| Disk["Ubuntu 24.04 VDI Disk"]
+    Preflight -->|3. Render & Package| Seed["Cloud-Init seed.iso"]
+    Disk --> VBox["VirtualBox 7.x VM"]
     Seed --> VBox
     CLI -->|4. Ansible / SSH| GitLab["GitLab CE (Omnibus / Docker)"]
     VBox --> GitLab
@@ -78,7 +82,10 @@ flowchart LR
 
 ```text
 gitlab/
-├── gitlab_vm.py                        — Python 3 CLI orchestrator and lifecycle manager
+├── gitlab_vm.py                        — Python 3 CLI orchestrator (init, doctor, guide, up, url, ssh, destroy)
+├── AGENTS.md                           — Agent context, architectural invariants, and verification gates
+├── CLAUDE.md                           — Claude Code entry pointer to AGENTS.md and docs/README.md
+├── CHANGELOG.md                        — Semantic version history and release notes
 ├── iac/
 │   ├── vm-spec.yaml                    — Declarative VM hardware, network, and GitLab spec
 │   ├── ansible/
@@ -91,22 +98,30 @@ gitlab/
 │   └── docker/
 │       └── docker-compose.yml.tmpl     — Docker Compose template for containerized GitLab
 ├── scripts/
+│   ├── install.sh                      — Multi-target installer (--local, --global, --prefix, --uninstall)
 │   ├── deploy-all.sh                   — End-to-end wrapper invoking gitlab_vm.py up
 │   ├── create-vm.sh                    — Standalone Bash VM creator using VBoxManage
 │   ├── install-gitlab.sh               — Standalone Bash GitLab installer (remote SSH or --local)
 │   └── show-url.sh                     — Wrapper displaying GitLab URL, status, and credentials
 └── docs/
-    ├── ARCHITECTURE.md                 — System design, component map, data flows, decisions
+    ├── README.md                       — Documentation Hub & central reading index
+    ├── ARCHITECTURE.md                 — System design, clean boundaries, data flows, ADRs
     ├── PURPOSE.md                      — Problem statement, goals, non-goals, trade-offs
     ├── HOWTO.md                        — Task-oriented operational recipes and troubleshooting
-    └── brochure.md                     — Executive overview and visual architecture showcase
+    ├── brochure.md                     — Executive overview and visual architecture showcase
+    └── user-guide/                     — 4-chapter comprehensive User Guide
+        ├── README.md                   — User Guide entry point & Table of Contents
+        ├── 01-getting-started.md       — Prerequisites, multi-scope install, init -> doctor -> up
+        ├── 02-examples-and-recipes.md  — Omnibus, Docker, custom ports, Bridged LAN, CI scripts
+        ├── 03-cli-and-config-reference.md — Complete CLI flags, YAML schema, env vars, exit codes
+        └── 04-troubleshooting-and-faq.md  — Diagnostics, remedies, password recovery, FAQ
 ```
 
 ---
 
 ## Configuration
 
-Configuration is managed declaratively in [`iac/vm-spec.yaml`](iac/vm-spec.yaml) for [`gitlab_vm.py`](gitlab_vm.py) and via environment variables or CLI flags for the standalone Bash scripts in [`scripts/`](scripts/).
+Configuration is managed declaratively in [`iac/vm-spec.yaml`](iac/vm-spec.yaml) for [`gitlab_vm.py`](gitlab_vm.py) and via environment variables or CLI flags for the standalone Bash scripts in [`scripts/`](scripts/). See [User Guide — Chapter 03: CLI & Config Reference](docs/user-guide/03-cli-and-config-reference.md) for the full schema.
 
 ### Declarative Spec Keys (`iac/vm-spec.yaml`)
 
@@ -139,25 +154,6 @@ Configuration is managed declaratively in [`iac/vm-spec.yaml`](iac/vm-spec.yaml)
 | `gitlab.sidekiq_concurrency` | No | `10` | Sidekiq background job concurrency (`sidekiq['concurrency']`) |
 | `gitlab.prometheus_monitoring_enable` | No | `false` | Toggle embedded Prometheus monitoring stack |
 
-### Bash Script Environment Variables (`scripts/create-vm.sh` & `scripts/install-gitlab.sh`)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `VM_NAME` | No | `gitlab-server` | Target VirtualBox VM name |
-| `VM_CPUS` | No | `4` | Virtual CPU count |
-| `VM_MEMORY_MB` | No | `8192` | VM memory in MiB |
-| `VM_DISK_GB` | No | `40` | VDI disk size in GiB |
-| `SSH_HOST` | No | `127.0.0.1` | Target SSH host for provisioning |
-| `SSH_HOST_PORT` / `SSH_PORT` | No | `2222` | Host port forwarded to guest SSH |
-| `HTTP_HOST_PORT` / `GITLAB_EXTERNAL_PORT` | No | `8080` | Host and guest HTTP port for GitLab |
-| `HTTPS_HOST_PORT` | No | `8443` | Host port forwarded to guest HTTPS |
-| `GIT_SSH_HOST_PORT` | No | `2224` | Host port forwarded to Git SSH |
-| `GITLAB_INSTALL_METHOD` | No | `omnibus` | `omnibus` or `docker` |
-| `GITLAB_EDITION` | No | `gitlab-ce` | `gitlab-ce` or `gitlab-ee` |
-| `GITLAB_EXTERNAL_URL` | No | `http://localhost:8080` | Full `external_url` written to `/etc/gitlab/gitlab.rb` |
-| `GITLAB_INITIAL_ROOT_PASSWORD` | No | `GitLabRoot!2026` | Initial `root` password (minimum 8 characters) |
-| `DRY_RUN` | No | `false` | Print commands without executing (`true` or `false`) |
-
 ---
 
 ## Development
@@ -167,12 +163,13 @@ Configuration is managed declaratively in [`iac/vm-spec.yaml`](iac/vm-spec.yaml)
 python3 -m py_compile gitlab_vm.py
 
 # Verify Bash script syntax
-bash -n scripts/create-vm.sh scripts/install-gitlab.sh scripts/show-url.sh scripts/deploy-all.sh
+bash -n scripts/install.sh scripts/create-vm.sh scripts/install-gitlab.sh scripts/show-url.sh scripts/deploy-all.sh
 
 # Verify Ansible playbook syntax
 ansible-playbook --syntax-check -i "localhost," iac/ansible/playbook.yml
 
-# Run full lifecycle dry-run (no VM created, prints exact VBoxManage & Ansible commands)
+# Run environment preflight and full lifecycle dry-run
+./gitlab_vm.py doctor
 ./gitlab_vm.py --dry-run up
 ./scripts/create-vm.sh --dry-run
 ./scripts/install-gitlab.sh --dry-run
@@ -185,6 +182,12 @@ ansible-playbook --syntax-check -i "localhost," iac/ansible/playbook.yml
 Deploy or manage the VirtualBox GitLab instance using either the Python CLI orchestrator or the standalone Bash scripts:
 
 ```bash
+# Onboarding & Preflight
+./scripts/install.sh --local              # Install gitlab-vm into ~/.local/bin
+./gitlab_vm.py init                       # Initialize iac/vm-spec.yaml if missing
+./gitlab_vm.py doctor                     # Verify VBoxManage, qemu-img, ISO tools, and SSH
+./gitlab_vm.py guide                      # Display built-in lifecycle reference guide
+
 # Option A: Python CLI Orchestrator
 ./gitlab_vm.py create-vm                  # 1. Create and boot the VirtualBox Linux VM
 ./gitlab_vm.py provision                  # 2. Provision GitLab inside the VM (Ansible or SSH)
@@ -208,10 +211,13 @@ Deploy or manage the VirtualBox GitLab instance using either the Python CLI orch
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs/ARCHITECTURE.md) | System design, component map, data flows, state machine, key decisions |
+| **[User Guide](docs/user-guide/README.md)** | **Complete 4-chapter User Manual: Getting Started, Examples, CLI/Schema Reference, Troubleshooting** |
+| [Documentation Hub](docs/README.md) | Central navigation index and recommended reading order |
+| [Architecture](docs/ARCHITECTURE.md) | System design, clean boundaries, component map, data flows, ADRs |
 | [Purpose](docs/PURPOSE.md) | Why this project exists, goals, non-goals, trade-offs |
 | [How-To Guide](docs/HOWTO.md) | Task-oriented guide: setup, customize, switch Omnibus/Docker, debug |
 | [Product Brochure](docs/brochure.md) | Executive overview, value pillars, and visual system architecture |
+| [Changelog](CHANGELOG.md) | Semantic version history and release notes |
 
 ---
 
@@ -219,8 +225,9 @@ Deploy or manage the VirtualBox GitLab instance using either the Python CLI orch
 
 1. Create a feature branch (`git checkout -b feat/your-change`).
 2. Validate Python, Bash, and Ansible syntax (`python3 -m py_compile gitlab_vm.py && bash -n scripts/*.sh`).
-3. Verify command generation with `./gitlab_vm.py --dry-run up`.
-4. Submit a pull request against `main`.
+3. Verify command generation with `./gitlab_vm.py doctor && ./gitlab_vm.py --dry-run up`.
+4. Ensure all affected documentation in `README.md` and `docs/` is updated in the same commit.
+5. Submit a pull request against `main`.
 
 ---
 
