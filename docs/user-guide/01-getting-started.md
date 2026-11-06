@@ -1,6 +1,6 @@
 # Chapter 01 — Getting Started & Bootstrap Workflow
 
-[← User Guide Index](README.md) | [← Project README](../../README.md) | [Next: Examples & Recipes →](02-examples-and-recipes.md)
+[← Back to Project README](../../README.md) | [← User Guide Index](README.md) | [Next: Examples & Recipes →](02-examples-and-recipes.md)
 
 ## Table of Contents
 
@@ -99,7 +99,7 @@ GitLab VirtualBox IaC — Environment Preflight (doctor)
   [OK]   curl: /usr/bin/curl
   [OK]   ssh: /usr/bin/ssh
   [OK]   ssh-keygen: /usr/bin/ssh-keygen
-  [OK]   ansible-playbook (optional; falls back to SSH script): /Users/bill/.local/bin/ansible-playbook
+  [OK]   ansible-playbook (optional; falls back to SSH script): ~/.local/bin/ansible-playbook
   [OK]   spec (iac/vm-spec.yaml): iac/vm-spec.yaml
 ================================================================
 Environment verified: all required tools and specifications are ready.

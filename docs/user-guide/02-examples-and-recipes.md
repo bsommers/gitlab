@@ -1,6 +1,6 @@
 # Chapter 02 — Examples & Operational Recipes
 
-[← Getting Started](01-getting-started.md) | [User Guide Index](README.md) | [Next: CLI & Config Reference →](03-cli-and-config-reference.md)
+[← Back to Project README](../../README.md) | [← Getting Started](01-getting-started.md) | [User Guide Index](README.md) | [Next: CLI & Config Reference →](03-cli-and-config-reference.md)
 
 ## Table of Contents
 
@@ -135,7 +135,7 @@ By default, `adapter1` uses VirtualBox NAT port forwarding (`localhost:8080`). T
 Use `--json` and `--raw` output modes to integrate with automated test suites (notice that `stdout` contains only pure JSON or the URL, never onboarding hints):
 
 ```bash
-# Extract the Web URL and HTTP readiness state via jq
+# Extract the Web URL and HTTP readiness state
 GITLAB_URL="$(./gitlab_vm.py url --raw)"
 IS_READY="$(./gitlab_vm.py url --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["http_ready"])')"
 

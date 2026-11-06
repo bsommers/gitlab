@@ -9,7 +9,7 @@ Welcome to the comprehensive User Guide for **GitLab on VirtualBox (`gitlab`)** 
 ## Table of Contents
 
 - [Chapters Overview](#chapters-overview)
-- [Getting Started & Bootstrap Workflow](#getting-started--bootstrap-workflow)
+- [Getting Started](#getting-started)
 - [Examples](#examples)
 - [Reference](#reference)
 - [Troubleshooting & FAQ](#troubleshooting--faq)
@@ -21,18 +21,28 @@ Welcome to the comprehensive User Guide for **GitLab on VirtualBox (`gitlab`)** 
 | Chapter | File | Topics Covered |
 |---------|------|----------------|
 | **01. Getting Started** | [01-getting-started.md](01-getting-started.md) | Host prerequisites, multi-scope installation (`--local`, `--global`, `--prefix`), `init → doctor → up` bootstrap workflow |
-| **02. Examples & Recipes** | [02-examples-and-recipes.md](02-examples-and-recipes.md) | End-to-end Omnibus & Docker workflows, custom ports/RAM, Bridged LAN networking, extending Ansible |
+| **02. Examples & Recipes** | [02-examples-and-recipes.md](02-examples-and-recipes.md) | End-to-end Omnibus & Docker workflows, custom ports/RAM, Bridged LAN networking, Ansible extension, CI scripts |
 | **03. CLI & Config Reference** | [03-cli-and-config-reference.md](03-cli-and-config-reference.md) | All CLI subcommands & flags, `iac/vm-spec.yaml` schema, environment variables, and exit codes |
 | **04. Troubleshooting & FAQ** | [04-troubleshooting-and-faq.md](04-troubleshooting-and-faq.md) | Diagnostic steps, common error remedies, password recovery, and frequently asked questions |
 
 ---
 
-## Getting Started & Bootstrap Workflow
+## Getting Started
 
-Follow the four-step bootstrap lifecycle (`install → init → doctor → up`):
+### Prerequisites
+
+Ensure the following tools are installed on your macOS (`arm64` / `x86_64`) or Linux (`x86_64` / `arm64`) host:
+- **Oracle VirtualBox 7.0+** (`VBoxManage` in `PATH`)
+- **`qemu-img`** (`brew install qemu` on macOS or `sudo apt-get install -y qemu-utils` on Ubuntu/Debian)
+- **ISO Builder**: `hdiutil` (macOS built-in) or `genisoimage` / `mkisofs` / `xorriso` on Linux
+- **Python 3.9+**, `curl`, `ssh`, and `ssh-keygen`
+- **Optional**: `ansible-playbook` (`pip install ansible-core`; automatically falls back to `scripts/install-gitlab.sh` if absent)
+
+### Bootstrap Workflow (`install → init → doctor → up`)
 
 ```bash
 # 1. Install the CLI into your user home (~/.local/bin/gitlab-vm)
+#    (Also supports --global and --prefix DIR)
 ./scripts/install.sh --local
 
 # 2. Initialize or verify the declarative VM specification (iac/vm-spec.yaml)
@@ -46,7 +56,7 @@ Follow the four-step bootstrap lifecycle (`install → init → doctor → up`):
 ./gitlab_vm.py up
 ```
 
-See [Chapter 01: Getting Started](01-getting-started.md) for `--global` and `--prefix DIR` installation scopes and platform-specific prerequisite installation commands.
+Read the full walkthrough in [Chapter 01: Getting Started & Bootstrap Workflow](01-getting-started.md).
 
 ---
 
@@ -89,19 +99,20 @@ Expected output:
 ./gitlab_vm.py url --json
 ```
 
-See [Chapter 02: Examples & Recipes](02-examples-and-recipes.md) for complete recipes including Docker Compose mode, custom port mappings, and secondary network adapters.
+Explore end-to-end operational recipes in [Chapter 02: Examples & Operational Recipes](02-examples-and-recipes.md).
 
 ---
 
 ## Reference
 
-| Tool / File | Purpose | Reference Link |
-|-------------|---------|----------------|
-| `gitlab_vm.py` | Primary Python CLI orchestrator (`init`, `doctor`, `guide`, `up`, `create-vm`, `provision`, `url`, `ssh`, `start`, `stop`, `destroy`) | [CLI & Config Reference](03-cli-and-config-reference.md#1-python-cli-orchestrator-gitlab_vmpy) |
-| `scripts/install.sh` | Multi-scope CLI installer (`--local`, `--global`, `--prefix`, `--copy`, `--uninstall`) | [CLI & Config Reference](03-cli-and-config-reference.md#2-multi-target-installer-scriptsinstallsh) |
-| `scripts/create-vm.sh` | Standalone Bash VM builder using `VBoxManage` | [CLI & Config Reference](03-cli-and-config-reference.md#3-standalone-bash-scripts) |
-| `scripts/install-gitlab.sh` | Standalone Bash GitLab CE provisioner (SSH or `--local`) | [CLI & Config Reference](03-cli-and-config-reference.md#3-standalone-bash-scripts) |
-| `iac/vm-spec.yaml` | Declarative VM hardware, networking, and GitLab configuration | [CLI & Config Reference](03-cli-and-config-reference.md#4-declarative-specification-schema-iacvm-specyaml) |
+| Tool / File | Purpose | Detailed Reference |
+|-------------|---------|--------------------|
+| `gitlab_vm.py` | Primary Python CLI orchestrator (`init`, `doctor`, `guide`, `up`, `create-vm`, `provision`, `url`, `ssh`, `start`, `stop`, `destroy`) | [CLI & Config Reference §1](03-cli-and-config-reference.md#1-python-cli-orchestrator-gitlab_vmpy) |
+| `scripts/install.sh` | Multi-scope CLI installer (`--local`, `--global`, `--prefix`, `--copy`, `--uninstall`) | [CLI & Config Reference §2](03-cli-and-config-reference.md#2-multi-target-installer-scriptsinstallsh) |
+| `scripts/create-vm.sh` | Standalone Bash VM builder using `VBoxManage` | [CLI & Config Reference §3](03-cli-and-config-reference.md#3-standalone-bash-scripts) |
+| `scripts/install-gitlab.sh` | Standalone Bash GitLab CE provisioner (SSH or `--local`) | [CLI & Config Reference §3](03-cli-and-config-reference.md#3-standalone-bash-scripts) |
+| `iac/vm-spec.yaml` | Declarative VM hardware, networking, and GitLab configuration | [CLI & Config Reference §4](03-cli-and-config-reference.md#4-declarative-specification-schema-iacvm-specyaml) |
+| Environment Variables & Exit Codes | Host/guest environment overrides and CLI return codes | [CLI & Config Reference §5–§6](03-cli-and-config-reference.md#5-environment-variables) |
 
 ---
 
@@ -111,4 +122,4 @@ If a preflight check fails or the VM cannot be reached:
 
 1. Run `./gitlab_vm.py doctor` to inspect every required binary and its installation remedy.
 2. Check VM hypervisor state with `VBoxManage showvminfo gitlab-server --machinereadable | grep -E "VMState|Forwarding"`.
-3. Consult [Chapter 04: Troubleshooting & FAQ](04-troubleshooting-and-faq.md) for step-by-step solutions.
+3. Consult [Chapter 04: Troubleshooting & FAQ](04-troubleshooting-and-faq.md) for step-by-step diagnostics and solutions.

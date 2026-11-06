@@ -1,6 +1,6 @@
 # Chapter 03 — CLI & Configuration Reference
 
-[← Examples & Recipes](02-examples-and-recipes.md) | [User Guide Index](README.md) | [Next: Troubleshooting & FAQ →](04-troubleshooting-and-faq.md)
+[← Back to Project README](../../README.md) | [← Examples & Recipes](02-examples-and-recipes.md) | [User Guide Index](README.md) | [Next: Troubleshooting & FAQ →](04-troubleshooting-and-faq.md)
 
 ## Table of Contents
 

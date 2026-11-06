@@ -1,6 +1,6 @@
 # Chapter 04 — Troubleshooting & FAQ
 
-[← CLI & Config Reference](03-cli-and-config-reference.md) | [User Guide Index](README.md) | [← Project README](../../README.md)
+[← Back to Project README](../../README.md) | [← CLI & Config Reference](03-cli-and-config-reference.md) | [User Guide Index](README.md)
 
 ## Table of Contents
 
