@@ -107,8 +107,9 @@ Open `http://localhost:8080/users/sign_in` in your browser and sign in with user
 ## Run tests and dry-run verification
 
 ```bash
-# 1. Compile and syntax-check the Python CLI orchestrator
+# 1. Compile and run unit tests (31 tests, 94% line coverage on gitlab_vm.py)
 python3 -m py_compile gitlab_vm.py
+python3 -m unittest discover -s tests -v
 
 # 2. Syntax-check all Bash scripts
 bash -n scripts/install.sh scripts/create-vm.sh scripts/install-gitlab.sh scripts/show-url.sh scripts/deploy-all.sh

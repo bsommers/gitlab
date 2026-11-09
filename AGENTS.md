@@ -28,6 +28,7 @@
 
 ```bash
 python3 -m py_compile gitlab_vm.py
+python3 -m unittest discover -s tests -v
 bash -n scripts/install.sh scripts/create-vm.sh scripts/install-gitlab.sh scripts/show-url.sh scripts/deploy-all.sh
 ansible-playbook --syntax-check -i "localhost," iac/ansible/playbook.yml
 ./gitlab_vm.py doctor

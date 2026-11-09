@@ -117,6 +117,8 @@ gitlab/
 │   ├── create-vm.sh                    — Standalone Bash VM creator using VBoxManage
 │   ├── install-gitlab.sh               — Standalone Bash GitLab installer (remote SSH or --local)
 │   └── show-url.sh                     — Wrapper displaying GitLab URL, status, and credentials
+├── tests/
+│   └── test_gitlab_vm.py               — Unit & contract test suite (Proxmox non-overwrite, VirtualBox, CLI)
 └── docs/
     ├── README.md                       — Documentation Hub & central reading index
     ├── ARCHITECTURE.md                 — System design, clean boundaries, data flows, ADRs

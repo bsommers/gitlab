@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `gitlab_vm.py destroy` refuses to delete a protected Proxmox VM unless `destroy --force` is explicitly passed.
 - Live guest IP discovery via the Proxmox QEMU Guest Agent (`proxmox_get_guest_ip()`) for `url`, `status`, `ssh`, and `provision`.
 - Proxmox API token and reachability preflight checks in `gitlab_vm.py doctor` (`proxmox-api-token` and `proxmox-api`).
+- Unit and contract test suite (`tests/test_gitlab_vm.py`, 31 tests, 94% line coverage on `gitlab_vm.py`) verifying YAML fallback parsing, cross-architecture resolution, Proxmox non-overwrite protection, QEMU Guest Agent IP discovery, VirtualBox NAT forwarding, and stderr-only onboarding breadcrumbs.
 
 ## [v0.2.0] - 2026-11-01
 

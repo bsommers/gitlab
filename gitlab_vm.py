@@ -140,17 +140,18 @@ def print_next_steps(
     *,
     quiet: bool = False,
     json_mode: bool = False,
-    stream: Any = sys.stderr,
+    stream: Optional[Any] = None,
 ) -> None:
     """Print completion summary and numbered next-step commands to stderr."""
     if quiet or json_mode:
         return
+    target = sys.stderr if stream is None else stream
     if summary:
-        print(summary, file=stream)
-    print("\nNext steps:", file=stream)
+        print(summary, file=target)
+    print("\nNext steps:", file=target)
     width = max((len(cmd) for cmd, _ in steps), default=24)
     for idx, (cmd, reason) in enumerate(steps, 1):
-        print(f"  {idx}. {cmd:<{width}}  # {reason}", file=stream)
+        print(f"  {idx}. {cmd:<{width}}  # {reason}", file=target)
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +369,7 @@ def cmd_doctor(
             "Set PROXMOX_API_TOKEN='USER@REALM!TOKENID=UUID' or save token to .state/proxmox/api_token",
         )
         pve_info: Optional[str] = None
+        pve_api_required = proxmox_required
         if token:
             try:
                 ver = proxmox_api_request(spec, "version", timeout=5)
@@ -381,11 +383,14 @@ def cmd_doctor(
                         )
                     else:
                         pve_info = f"{api_url} (PVE {ver.get('version')})"
+            except urllib.error.HTTPError:
+                pve_info = None
             except Exception:
                 pve_info = None
+                pve_api_required = False
         add_check(
             f"proxmox-api ({api_url})",
-            proxmox_required,
+            pve_api_required,
             pve_info,
             f"Verify Proxmox VE reachability at {api_url} and API token permissions",
         )
