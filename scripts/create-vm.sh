@@ -19,28 +19,31 @@ SSH_HOST_PORT="${SSH_HOST_PORT:-2222}"
 HTTP_HOST_PORT="${HTTP_HOST_PORT:-8080}"
 HTTPS_HOST_PORT="${HTTPS_HOST_PORT:-8443}"
 GIT_SSH_HOST_PORT="${GIT_SSH_HOST_PORT:-2224}"
+VM_PROVIDER="${VM_PROVIDER:-}"
 DRY_RUN="${DRY_RUN:-false}"
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Create and boot a Linux VM in VirtualBox using VBoxManage CLI tools.
+Create and boot a Linux VM in VirtualBox or Proxmox VE (never overwrites an existing VM).
 
 Options:
+  --provider <pve|vbox> Hypervisor provider: proxmox or virtualbox
   --name <name>         VM name (default: ${VM_NAME})
   --cpus <count>        vCPU count (default: ${VM_CPUS})
   --memory <mb>         RAM in MB (default: ${VM_MEMORY_MB})
   --disk <gb>           Disk size in GB (default: ${VM_DISK_GB})
   --http-port <port>    Host HTTP port forwarded to GitLab (default: ${HTTP_HOST_PORT})
   --ssh-port <port>     Host SSH port forwarded to VM port 22 (default: ${SSH_HOST_PORT})
-  --dry-run             Print VBoxManage commands without executing
+  --dry-run             Print commands without executing
   -h, --help            Show this help message
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --provider) VM_PROVIDER="$2"; shift 2 ;;
     --name) VM_NAME="$2"; shift 2 ;;
     --cpus) VM_CPUS="$2"; shift 2 ;;
     --memory) VM_MEMORY_MB="$2"; shift 2 ;;
@@ -52,6 +55,14 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
   esac
 done
+
+if [[ "${VM_PROVIDER}" == "proxmox" ]]; then
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    exec "${ROOT_DIR}/gitlab_vm.py" --provider proxmox --dry-run create-vm
+  else
+    exec "${ROOT_DIR}/gitlab_vm.py" --provider proxmox create-vm
+  fi
+fi
 
 run_cmd() {
   if [[ "${DRY_RUN}" == "true" ]]; then

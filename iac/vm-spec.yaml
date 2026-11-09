@@ -1,8 +1,10 @@
-# Declarative Infrastructure-as-Code Specification for GitLab on VirtualBox
+# Declarative Infrastructure-as-Code Specification for GitLab on Proxmox VE & VirtualBox
 # Consumed by gitlab_vm.py and scripts/*.sh
 
 vm:
   name: "gitlab-server"
+  # Hypervisor provider: "proxmox", "virtualbox", or "auto"
+  provider: "proxmox"
   # Auto-detected if set to "auto" (Ubuntu24_LTS_arm64 on Apple Silicon, Ubuntu24_LTS_64 on x86_64)
   ostype: "auto"
   cpus: 4
@@ -11,6 +13,21 @@ vm:
   vram_mb: 33
   firmware: "efi"
   rtc_use_utc: true
+
+proxmox:
+  # Proxmox VE REST API endpoint and target node
+  api_url: "https://192.168.1.62:8006"
+  node: "pve"
+  vmid: 112
+  template_vmid: 9000
+  storage: "stor3"
+  bridge: "vmbr0"
+  insecure_tls: true
+  # API token read from env (PROXMOX_API_TOKEN / CVM_PROXMOX_TOKEN) or gitignored file (.state/proxmox/api_token)
+  api_token_env: "PROXMOX_API_TOKEN"
+  api_token_file: ".state/proxmox/api_token"
+  # Never overwrite, re-clone, reconfigure, or destroy an existing VM on Proxmox
+  protect_existing: true
 
 image:
   # Ubuntu 24.04 LTS (Noble Numbat) official cloud image

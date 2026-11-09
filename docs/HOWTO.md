@@ -20,10 +20,9 @@
 ## Set up development environment
 
 **Prerequisites**:
-- Oracle VirtualBox 7.0+ (`VBoxManage` in `PATH`)
-- `qemu-img` (`brew install qemu` on macOS, or `sudo apt-get install qemu-utils` on Ubuntu/Debian)
+- **Proxmox VE** (`proxmox` provider): Proxmox VE 8.x/9.x REST API token (`PROXMOX_API_TOKEN` or `.state/proxmox/api_token`)
+- **Oracle VirtualBox** (`virtualbox` provider): VirtualBox 7.0+ (`VBoxManage` in `PATH`), `qemu-img`, and an ISO builder (`hdiutil` on macOS or `genisoimage` / `mkisofs` / `xorriso` on Linux)
 - Python 3.9+ (optional: `pip install pyyaml ansible-core`)
-- ISO builder: `hdiutil` (pre-installed on macOS) or `genisoimage` / `mkisofs` / `xorriso` on Linux
 
 ```bash
 # Clone repository

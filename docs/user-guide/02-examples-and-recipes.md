@@ -15,11 +15,15 @@
 
 ## Recipe 1: Standard Omnibus GitLab Deployment (`gitlab_vm.py`)
 
-Create the Ubuntu 24.04 LTS VM, install the official `gitlab-ce` Omnibus package, and print the connection banner:
+Verify or create the Ubuntu 24.04 LTS VM (on Proxmox VE or VirtualBox), ensure the official `gitlab-ce` Omnibus package is provisioned, and print the connection banner. On Proxmox VE, existing VMs (`gitlab-server` / VMID `112`) are automatically detected and protected from being overwritten:
 
 ```bash
-# Run end-to-end
+# Run end-to-end (automatically preserves existing Proxmox VM & live GitLab instance)
 ./gitlab_vm.py up
+
+# Or explicitly target Proxmox VE or VirtualBox:
+./gitlab_vm.py --provider proxmox url
+./gitlab_vm.py --provider virtualbox --dry-run up
 
 # Or run each phase separately
 ./gitlab_vm.py create-vm

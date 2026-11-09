@@ -4,13 +4,13 @@
 
 ## System Overview
 
-`gitlab` is a declarative, CLI-driven infrastructure provisioning pipeline that creates a Linux VM in Oracle VirtualBox and deploys a self-hosted GitLab Community Edition (CE) server inside it. It is a local hypervisor automation tool, not a cloud-hosted SaaS wrapper or a multi-node orchestrator.
+`gitlab` is a declarative, CLI-driven infrastructure provisioning pipeline that manages an Ubuntu 24.04 LTS Linux VM in **Proxmox VE** (via REST API and QEMU Guest Agent discovery, with strict non-overwrite protection for existing VMs) or **Oracle VirtualBox** (via `VBoxManage` CLI tools) and deploys a self-hosted GitLab Community Edition (CE) server inside it.
 
 Its design follows five core architectural principles (`architecture-best-practices`):
-1. **Dependency Inversion & Clean Boundaries**: High-level orchestration policy (`iac/vm-spec.yaml` schema + lifecycle state transitions in `gitlab_vm.py`) is decoupled from low-level execution adapters (`VBoxManage` hypervisor CLI, `hdiutil`/`genisoimage` ISO builders, and `ansible-playbook` vs. `scripts/install-gitlab.sh` provisioners).
+1. **Dependency Inversion & Clean Boundaries**: High-level orchestration policy (`iac/vm-spec.yaml` schema + lifecycle state transitions in `gitlab_vm.py`) is decoupled from low-level execution adapters (Proxmox VE REST API, `VBoxManage` hypervisor CLI, `hdiutil`/`genisoimage` ISO builders, and `ansible-playbook` vs. `scripts/install-gitlab.sh` provisioners).
 2. **Explicit Contracts & DTOs**: Every boundary uses a structured contract — `iac/vm-spec.yaml` at ingress, rendered `cloud-init` (`meta-data`, `user-data`) and Ansible inventory (`inventory.ini`) templates across the host-to-guest boundary, and structured JSON (`url --json`, `doctor --json`) at egress.
-3. **Unidirectional, Acyclic Dependencies (DAG)**: Data and control flow strictly top-down from `iac/vm-spec.yaml` → `gitlab_vm.py` / `scripts/*.sh` → host CLI adapters → guest VM services, with zero cyclic imports or shared mutable globals.
-4. **Discrete Pipeline Staging**: Provisioning progresses through four deterministic stages: **Preflight (`init` / `doctor`)** → **Hypervisor & Seed Construction (`create-vm`)** → **Guest Application Convergence (`provision`)** → **Readiness & Discovery (`url`)**.
+3. **Unidirectional, Acyclic Dependencies (DAG)**: Data and control flow strictly top-down from `iac/vm-spec.yaml` → `gitlab_vm.py` / `scripts/*.sh` → hypervisor adapters → guest VM services, with zero cyclic imports or shared mutable globals.
+4. **Discrete Pipeline Staging & Non-Overwrite Safety**: Provisioning progresses through four deterministic stages: **Preflight (`init` / `doctor`)** → **Hypervisor & Seed Construction (`create-vm`)** → **Guest Application Convergence (`provision`)** → **Readiness & Discovery (`url`)**. On Proxmox VE, `proxmox_find_existing_vm()` inspects the target node by both VM `name` (`gitlab-server`) and `vmid` (`112`) before any clone, disk resize, or Cloud-Init operation—refusing to overwrite, re-clone, or destroy an existing VM when `proxmox.protect_existing: true`.
 5. **Resilience & Fault Isolation**: Network and boot boundaries use bounded polling with explicit timeouts (`wait_for_ssh` 300s deadline with 5s intervals, Ansible HTTP readiness 60 retries × 10s, and `discover_connection_details` 3s HTTP probe timeout) so hung guest services fail cleanly without blocking indefinitely.
 
 ### Top-Level Architecture
@@ -44,22 +44,22 @@ Its design follows five core architectural principles (`architecture-best-practi
 ### 1. Python CLI Orchestrator (`gitlab_vm.py`)
 
 **Location**: `gitlab_vm.py`
-**Responsibility**: Implements the onboarding commands (`init`, `doctor`, `guide`), parses `iac/vm-spec.yaml`, resolves host CPU architecture (`arm64` vs `amd64`), renders IaC templates, invokes hypervisor and provisioning adapters via `Runner`, and performs HTTP readiness discovery.
+**Responsibility**: Implements the onboarding commands (`init`, `doctor`, `guide`), parses `iac/vm-spec.yaml`, resolves hypervisor provider (`proxmox` vs `virtualbox`) and host CPU architecture (`arm64` vs `amd64`), enforces Proxmox non-overwrite protection (`proxmox_find_existing_vm()`), renders IaC templates, invokes hypervisor and provisioning adapters via `Runner`, and performs QEMU Guest Agent IP & HTTP readiness discovery.
 **Interfaces**:
 - Onboarding subcommands: `init [--force] [--non-interactive]`, `doctor [--json]`, `guide`
-- Lifecycle subcommands: `up`, `create-vm`, `provision`, `url` (`status`, `info`), `ssh`, `start`, `stop`, `destroy`
-- Global flags: `--version`, `-c / --config <path>`, `--dry-run`, `-v / --verbose`, `-q / --quiet`
-- Core functions: `cmd_init()`, `cmd_doctor()`, `cmd_guide()`, `print_next_steps()`, `load_yaml_file()`, `resolve_arch()`, `ensure_ssh_keypair()`, `build_cidata_iso()`, `create_vm()`, `wait_for_ssh()`, `provision_gitlab()`, `discover_connection_details()`, `show_connection_url()`
-**Dependencies**: Python 3.9+ standard library (`argparse`, `subprocess`, `urllib.request`, `string`, `shlex`), optional `PyYAML` (includes built-in fallback parser `_simple_yaml_parse()`), and external binaries `VBoxManage`, `qemu-img`, `curl`, `ssh`, `ssh-keygen`, `hdiutil`/`genisoimage`/`mkisofs`/`xorriso`.
+- Lifecycle subcommands: `up [--force-provision]`, `create-vm`, `provision`, `url` (`status`, `info`), `ssh`, `start`, `stop`, `destroy [--force]`
+- Global flags: `--version`, `-c / --config <path>`, `--provider {auto,proxmox,virtualbox}`, `--dry-run`, `-v / --verbose`, `-q / --quiet`
+- Core functions: `cmd_init()`, `cmd_doctor()`, `cmd_guide()`, `print_next_steps()`, `load_yaml_file()`, `resolve_provider()`, `proxmox_find_existing_vm()`, `proxmox_get_guest_ip()`, `create_vm_proxmox()`, `resolve_arch()`, `ensure_ssh_keypair()`, `build_cidata_iso()`, `create_vm()`, `wait_for_ssh()`, `provision_gitlab()`, `discover_connection_details()`, `show_connection_url()`
+**Dependencies**: Python 3.9+ standard library (`argparse`, `subprocess`, `urllib.request`, `ssl`, `string`, `shlex`), optional `PyYAML` (includes built-in fallback parser `_simple_yaml_parse()`), and external binaries `curl`, `ssh`, `ssh-keygen`, plus `VBoxManage`, `qemu-img`, and `hdiutil`/`genisoimage`/`mkisofs`/`xorriso` when using the `virtualbox` provider.
 
 ---
 
 ### 2. Declarative Infrastructure Templates (`iac/`)
 
 **Location**: `iac/`
-**Responsibility**: Defines the desired state of the VirtualBox VM, `cloud-init` first-boot configuration, Ansible playbook tasks, and Docker Compose service definition.
+**Responsibility**: Defines the desired state of the Proxmox VE or VirtualBox VM, `cloud-init` first-boot configuration, Ansible playbook tasks, and Docker Compose service definition.
 **Interfaces**:
-- `iac/vm-spec.yaml`: Top-level schema (`vm`, `image`, `network`, `auth`, `gitlab` sections).
+- `iac/vm-spec.yaml`: Top-level schema (`vm`, `proxmox`, `image`, `network`, `auth`, `gitlab` sections).
 - `iac/cloud-init/*.tmpl`: Variable placeholders (`${INSTANCE_ID}`, `${HOSTNAME}`, `${SSH_USER}`, `${SSH_PUBLIC_KEY}`).
 - `iac/ansible/inventory.ini.tmpl` & `iac/ansible/playbook.yml`: Ansible variables (`gitlab_install_method`, `gitlab_edition`, `gitlab_external_url`, `gitlab_external_port`, `gitlab_ssh_port`, `gitlab_initial_root_password`, `gitlab_puma_workers`, `gitlab_sidekiq_concurrency`, `gitlab_prometheus_enable`).
 **Dependencies**: Consumed by `gitlab_vm.py` and `ansible-playbook`.

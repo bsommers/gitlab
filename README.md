@@ -1,8 +1,8 @@
-# GitLab on VirtualBox (`gitlab`)
+# GitLab on Proxmox VE & VirtualBox (`gitlab`)
 
-> Declarative Infrastructure-as-Code (IaC) templates, Python CLI orchestrator, and standalone Bash scripts to provision an Ubuntu 24.04 LTS VirtualBox VM and deploy a self-hosted GitLab CE server.
+> Declarative Infrastructure-as-Code (IaC) templates, Python CLI orchestrator, and standalone Bash scripts to manage an Ubuntu 24.04 LTS VM on **Proxmox VE** or **Oracle VirtualBox** and deploy a self-hosted GitLab CE server.
 
-`gitlab` automates the full lifecycle of a local GitLab Community Edition (CE) instance running inside an Oracle VirtualBox 7.x virtual machine. It replaces manual ISO installations and ad-hoc GUI configuration with a single declarative specification ([`iac/vm-spec.yaml`](iac/vm-spec.yaml)), `NoCloud` cloud-init image seeding, `VBoxManage` CLI automation, and idempotent Ansible or SSH-based GitLab provisioning across macOS and Linux (`arm64` and `x86_64`).
+`gitlab` automates the full lifecycle of a self-hosted GitLab Community Edition (CE) instance running inside a **Proxmox VE** virtual machine (via REST API and QEMU Guest Agent discovery, with strict non-overwrite protection for existing VMs) or an **Oracle VirtualBox 7.x** virtual machine (`VBoxManage` CLI + `NoCloud` cloud-init image seeding), driven by a single declarative specification ([`iac/vm-spec.yaml`](iac/vm-spec.yaml)) and idempotent Ansible or SSH-based provisioning across macOS and Linux (`arm64` and `x86_64`).
 
 ---
 
@@ -49,11 +49,12 @@ For complete task walkthroughs, operational recipes, CLI flags, configuration sc
 
 ## What It Does
 
-- **Multi-Scope CLI Onboarding (`install.sh`, `init`, `doctor`, `guide`)**: Installs `gitlab-vm` into user home (`--local`), system-wide (`--global`), or custom prefixes (`--prefix DIR`), initializes starter specs (`init`), validates host tools with actionable remedies (`doctor`), and emits progressive `Next steps:` breadcrumbs to `stderr`.
+- **Multi-Scope CLI Onboarding (`install.sh`, `init`, `doctor`, `guide`)**: Installs `gitlab-vm` into user home (`--local`), system-wide (`--global`), or custom prefixes (`--prefix DIR`), initializes starter specs (`init`), validates host tools and Proxmox API reachability with actionable remedies (`doctor`), and emits progressive `Next steps:` breadcrumbs to `stderr`.
+- **Manages Proxmox VE VMs with Non-Overwrite Protection (`--provider proxmox`)**: Inspects target Proxmox VE nodes via REST API by both VM `name` (`gitlab-server`) and `vmid` (`112`) before any clone, disk resize, or Cloud-Init operation—refusing to overwrite, re-clone, or destroy an existing VM when `proxmox.protect_existing: true`.
 - **Provisions VirtualBox Linux VMs via CLI (`VBoxManage`)**: Downloads the official Ubuntu 24.04 LTS (`noble`) cloud image matching the host CPU architecture (`arm64` or `amd64`), converts and resizes it to a 40 GB VDI disk via `qemu-img` and `VBoxManage`, and boots the VM headlessly with EFI firmware and VirtIO storage/networking.
 - **Bootstraps Guest OS via Cloud-Init (`NoCloud`)**: Generates a `cidata` ISO image containing rendered `user-data` and `meta-data` templates (`iac/cloud-init/`), injecting a dedicated Ed25519 SSH keypair, configuring a 4 GB swapfile, applying kernel `sysctl` parameters (`vm.swappiness=10`, `kernel.shmall=4194304`), and enabling `openssh-server`.
 - **Deploys GitLab CE via Omnibus or Docker Compose**: Provisions GitLab Community Edition inside the VM using either the idempotent Ansible playbook ([`iac/ansible/playbook.yml`](iac/ansible/playbook.yml)) or the standalone Bash installer ([`scripts/install-gitlab.sh`](scripts/install-gitlab.sh)), with single-VM memory tuning for Puma (`worker_processes=2`) and Sidekiq (`concurrency=10`).
-- **Discovers and Verifies Connection URLs**: Inspects live VirtualBox NAT forwarding rules via `VBoxManage showvminfo --machinereadable`, probes HTTP readiness on `/users/sign_in`, and outputs human-readable banners, raw URLs (`--raw`), or machine-readable JSON (`--json`).
+- **Discovers and Verifies Connection URLs**: Queries the Proxmox QEMU Guest Agent (`network-get-interfaces`) or VirtualBox NAT forwarding rules (`VBoxManage showvminfo --machinereadable`), probes HTTP readiness on `/users/sign_in`, and outputs human-readable banners, raw URLs (`--raw`), or machine-readable JSON (`--json`).
 
 ---
 

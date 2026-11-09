@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Proxmox VE hypervisor provider (`vm.provider: "proxmox"` in `iac/vm-spec.yaml` and `--provider {auto,proxmox,virtualbox}` CLI flag) alongside Oracle VirtualBox.
+- Strict Proxmox non-overwrite protection (`proxmox_find_existing_vm()` and `proxmox.protect_existing: true`):
+  - Inspects Proxmox VE nodes by both VM `name` (`gitlab-server`) and `vmid` (`112`) before any clone, disk resize, or Cloud-Init configuration call, refusing to overwrite or recreate existing VMs.
+  - `gitlab_vm.py up` automatically skips re-provisioning when an existing Proxmox VM already responds on HTTP (`/users/sign_in`), unless `--force-provision` is passed.
+  - `gitlab_vm.py destroy` refuses to delete a protected Proxmox VM unless `destroy --force` is explicitly passed.
+- Live guest IP discovery via the Proxmox QEMU Guest Agent (`proxmox_get_guest_ip()`) for `url`, `status`, `ssh`, and `provision`.
+- Proxmox API token and reachability preflight checks in `gitlab_vm.py doctor` (`proxmox-api-token` and `proxmox-api`).
+
 ## [v0.2.0] - 2026-11-01
 
 ### Added

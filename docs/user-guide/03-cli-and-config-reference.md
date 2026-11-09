@@ -16,7 +16,8 @@
 ## 1. Python CLI Orchestrator (`gitlab_vm.py`)
 
 ```text
-usage: gitlab_vm.py [-h] [--version] [-c CONFIG] [--dry-run] [-v] [-q]
+usage: gitlab_vm.py [-h] [--version] [-c CONFIG] [--provider {auto,proxmox,virtualbox}]
+                    [--dry-run] [-v] [-q]
                     {init,doctor,guide,up,create-vm,provision,url,status,info,ssh,start,stop,destroy} ...
 ```
 
@@ -26,7 +27,8 @@ usage: gitlab_vm.py [-h] [--version] [-c CONFIG] [--dry-run] [-v] [-q]
 |------|---------|-------------|
 | `--version` | — | Print `gitlab_vm.py` version (`0.2.0`) and exit |
 | `-c, --config <path>` | `iac/vm-spec.yaml` | Path to declarative VM and GitLab YAML specification |
-| `--dry-run` | `false` | Print all `VBoxManage`, `qemu-img`, and provisioning commands without executing them |
+| `--provider {auto,proxmox,virtualbox}` | `vm.provider` (`proxmox`) | Override hypervisor provider (`proxmox` REST API or `virtualbox` CLI) |
+| `--dry-run` | `false` | Print all Proxmox/VirtualBox and provisioning commands without executing them |
 | `-v, --verbose` | `false` | Echo every executed subprocess command to stdout |
 | `-q, --quiet` | `false` | Suppress informational logs and `Next steps:` onboarding breadcrumbs |
 | `-h, --help` | — | Show help message and workflow quickstart epilog |
@@ -36,16 +38,16 @@ usage: gitlab_vm.py [-h] [--version] [-c CONFIG] [--dry-run] [-v] [-q]
 | Subcommand | Options | Description |
 |------------|---------|-------------|
 | `init` | `--force`, `--non-interactive` (`--yes`) | Initialize a starter `iac/vm-spec.yaml` configuration file |
-| `doctor` | `--json` | Validate required host tools (`VBoxManage`, `qemu-img`, ISO builder, `curl`, `ssh`, `ssh-keygen`) and spec file |
+| `doctor` | `--json` | Validate required host tools, Proxmox API reachability, existing VM protection, and spec file |
 | `guide` | — | Print the built-in step-by-step lifecycle workflow and reference guide |
-| `up` | `--provisioner {auto,ansible,ssh}` | Create the VirtualBox Linux VM, provision GitLab CE, and display the connection URL |
-| `create-vm` | `--no-start` | Download the Ubuntu 24.04 cloud image, convert to `.vdi`, build `seed.iso`, and register/boot the VM |
+| `up` | `--provisioner {auto,ansible,ssh}`, `--force-provision` | Ensure VM exists (never overwriting existing Proxmox VMs), provision GitLab CE if needed, and display URL |
+| `create-vm` | `--no-start` | Create and boot the Linux VM in Proxmox VE or VirtualBox (never overwrites an existing VM) |
 | `provision` | `--provisioner {auto,ansible,ssh}` | Wait for SSH readiness and provision GitLab CE inside the running VM via Ansible or SSH script |
-| `url` (`status`, `info`) | `--json`, `--raw` | Inspect live VirtualBox NAT rules, probe GitLab HTTP readiness, and output connection details |
-| `ssh` | — | Open an interactive SSH session into the VirtualBox Linux VM |
-| `start` | — | Start an existing VirtualBox VM in headless mode (`VBoxManage startvm --type headless`) |
-| `stop` | — | Send an ACPI power button shutdown signal (`VBoxManage controlvm acpipowerbutton`) |
-| `destroy` | — | Power off and completely delete the VirtualBox VM and its attached disk/ISO media |
+| `url` (`status`, `info`) | `--json`, `--raw` | Inspect live Proxmox QEMU Guest Agent IP or VirtualBox NAT rules, probe HTTP readiness, and output connection details |
+| `ssh` | — | Open an interactive SSH session into the Linux VM |
+| `start` | — | Start an existing Proxmox VE or VirtualBox VM in headless mode |
+| `stop` | — | Send an ACPI power button shutdown signal to the VM |
+| `destroy` | `--force` | Power off and delete the VM (refuses if `proxmox.protect_existing: true` unless `--force` is passed) |
 
 ---
 
@@ -107,14 +109,25 @@ Usage: install.sh [scope] [options]
 
 | Key Path | Type | Default | Description |
 |----------|------|---------|-------------|
-| `vm.name` | `string` | `"gitlab-server"` | VirtualBox VM name |
+| `vm.name` | `string` | `"gitlab-server"` | VM name on Proxmox VE or VirtualBox |
+| `vm.provider` | `string` | `"proxmox"` | Hypervisor provider (`proxmox`, `virtualbox`, or `auto`) |
 | `vm.ostype` | `string` | `"auto"` | `auto` resolves to `Ubuntu24_LTS_arm64` or `Ubuntu24_LTS_64` |
 | `vm.cpus` | `int` | `4` | Virtual CPU cores |
 | `vm.memory_mb` | `int` | `8192` | Guest RAM in MiB |
-| `vm.disk_size_gb` | `int` | `40` | Resized VDI disk capacity in GiB |
+| `vm.disk_size_gb` | `int` | `40` | Resized disk capacity in GiB |
 | `vm.vram_mb` | `int` | `33` | Video RAM in MiB |
 | `vm.firmware` | `string` | `"efi"` | Firmware type (`efi` or `bios`) |
 | `vm.rtc_use_utc` | `bool` | `true` | Set hardware clock to UTC |
+| `proxmox.api_url` | `string` | `"https://192.168.1.62:8006"` | Proxmox VE REST API endpoint |
+| `proxmox.node` | `string` | `"pve"` | Target Proxmox VE node name |
+| `proxmox.vmid` | `int` | `112` | Target Proxmox VMID |
+| `proxmox.template_vmid` | `int` | `9000` | Ubuntu 24.04 Cloud-Init template VMID for new clones |
+| `proxmox.storage` | `string` | `"stor3"` | Proxmox storage pool for VM disks |
+| `proxmox.bridge` | `string` | `"vmbr0"` | Proxmox network bridge |
+| `proxmox.insecure_tls` | `bool` | `true` | Allow self-signed Proxmox VE TLS certificates |
+| `proxmox.api_token_env` | `string` | `"PROXMOX_API_TOKEN"` | Environment variable holding `USER@REALM!TOKENID=UUID` |
+| `proxmox.api_token_file` | `string` | `".state/proxmox/api_token"` | Local gitignored file holding Proxmox API token |
+| `proxmox.protect_existing` | `bool` | `true` | Never overwrite, re-clone, reconfigure, or destroy an existing Proxmox VM |
 | `image.release` | `string` | `"24.04"` | Ubuntu release version |
 | `image.codename` | `string` | `"noble"` | Ubuntu release codename |
 | `image.arch` | `string` | `"auto"` | `auto` resolves to `arm64` or `amd64` |
@@ -145,6 +158,8 @@ Usage: install.sh [scope] [options]
 
 | Variable | Consumed By | Default | Description |
 |----------|-------------|---------|-------------|
+| `PROXMOX_API_TOKEN` / `CVM_PROXMOX_TOKEN` | `gitlab_vm.py` | `.state/proxmox/api_token` | Proxmox VE REST API token (`USER@REALM!TOKENID=UUID`) |
+| `GITLAB_VM_PROVIDER` / `VM_PROVIDER` | `gitlab_vm.py`, `scripts/create-vm.sh` | `vm.provider` (`proxmox`) | Hypervisor provider override (`proxmox` or `virtualbox`) |
 | `PREFIX` | `scripts/install.sh` | — | Custom installation prefix directory |
 | `XDG_BIN_HOME` | `scripts/install.sh` | `$HOME/.local/bin` | User binary directory for `--local` scope |
 | `XDG_DATA_HOME` | `scripts/install.sh` | `$HOME/.local/share` | User data directory for `--local` scope |
